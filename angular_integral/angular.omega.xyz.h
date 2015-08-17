@@ -4,6 +4,7 @@
 #include<cstdlib>// exit
 //#include"../../../lib_math/math.functions.h"// factt
 #include"../../lib_math/math.functions.h"// factt
+#include<vector>
 
 #ifndef _100x1024x1024_// 100 Mb
 #define _100x1024x1024_ 104857600
@@ -45,29 +46,24 @@
 #include<iostream>
 #endif
 
-template<class T, std::size_t _size = std::size_t(_1024x1024_)>
+template<class T>
 struct angular_omega_xyz
 {
 	typedef T value_type;
-	typedef angular_omega_xyz<T, _size> omega_type;
 protected:
 	std::size_t _i_max, _j_max, _k_max;
 	std::size_t _half_imax__p1, _half_jmax__p1, _half_kmax__p1;
-	char _data[_size];
-	T * _begin, * _end;
+	std::vector<T> v;
 public:
 	//
 	angular_omega_xyz():
 		_i_max(0), _j_max(0), _k_max(0), 
-		_begin((T *)_data), _end( (T *)_data + _size / sizeof(T) ), 
+		v(std::size_t(_1024x1024_)/sizeof(T)), 
 		_half_imax__p1(0), _half_jmax__p1(0), _half_kmax__p1(0)
 	{
 #ifdef  __LOG_angular_omega_xyz__
 		log("angular_omega_xyz()");
 #endif
-		T * _ptr = _begin;
-		for(int i = 0; i < this->max_size(); ++i)
-			new (_ptr++) T();
 	}
 	~angular_omega_xyz()
 	{
@@ -84,15 +80,15 @@ public:
 	std::size_t i_max(std::size_t const & __i_max){_half_imax__p1 = __i_max/2 + 1;return _i_max = __i_max;}
 	std::size_t j_max(std::size_t const & __j_max){_half_jmax__p1 = __j_max/2 + 1;return _j_max = __j_max;}
 	std::size_t k_max(std::size_t const & __k_max){_half_kmax__p1 = __k_max/2 + 1;return _k_max = __k_max;}
-	std::size_t const max_size()const{return _end-_begin;}
+	std::size_t const max_size()const{return v.size();}
 	std::size_t const size()const{return _half_imax__p1 * _half_jmax__p1 * _half_kmax__p1;} 
-	T * begin(){return _begin;}
-	T const * begin()const{return _begin;}
-	T * end(){return _end;}
-	T const * end()const{return _end;}
+	T * begin(){return v.begin();}
+	T const * begin()const{return v.begin();}
+	T * end(){return v.end();}
+	T const * end()const{return v.end();}
 	void set_zero()
 	{
-		T * p = _begin;
+		T * p = v.begin();
 		for(std::size_t i = 0; i < this->size(); ++i)
 			*p++ = T(0);
 	}
@@ -114,7 +110,7 @@ public:
 #endif
 			exit(1);
 		}
-		T * p = _begin;
+		T * p = &v[0];
 		// TODO: 1) realize usage of _data empty space in run() method (to avoid memory allocation for pointers)
 		// TODO: 2) realize less calculation and less mrmory usage for integral storage because of equivalence of (i,j,k), (j,i,k), etc.
 		std::size_t __ijk_max = _i_max + _j_max + _k_max, __i_p_j;
@@ -168,7 +164,7 @@ public:
 #endif
 			exit(1);
 		}
-		return _begin[ ((i * _half_jmax__p1 + j) * _half_kmax__p1 + k)/2 ];
+		return v[ ((i * _half_jmax__p1 + j) * _half_kmax__p1 + k)/2 ];
 		//return _begin[ ((i * _half_jmax__p1 + j) * _half_kmax__p1 + k)>>1 ];
 		//return _begin[ ((i * (_j_max/2+1)   + j) * (_k_max/2+1)   + k)/2 ];
 	}

@@ -36,7 +36,7 @@ struct polynom_xyz
 	polynom_xyz(T const & __d, int const * __x):d(__d), x(*__x), y(*(__x+1)), z(*(__x+2)){}
 	int & operator[](int i){return ((int *)&x)[i];}
 	int const & operator[](int i)const{return (&(int const &)x)[i];}
-	int sum_x(){return (x + y + z);}
+	int sum_x()const{return (x + y + z);}
 	void set_x(int const * __x)
 	{
 		x = __x[0]; y = __x[1]; z = __x[2];

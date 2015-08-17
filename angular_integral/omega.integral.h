@@ -179,7 +179,7 @@ T omega_sph3(omega_index const & idx, T const * r_1, T const * r_2, std::vector<
 //----------------------------------           ------------------------------------------//
 //---------------------------------------------------------------------------------------//
 template<class T>
-T omega_int(typename spherical<T>::polynomial_type const & pol, spheical<T> const & sph_x, spherical<T> const & sph_pp, 
+T omega_int(typename spherical<T>::polynomial_type const & pol, spherical<T> const & sph_x, spherical<T> const & sph_pp, 
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
 {
 	int sum_x = pol.sum_x(), n_x = sph_x.n(), n_pp = sph_pp.n(), m_x = sph_x.m(), m_pp = sph_pp.m();
@@ -201,13 +201,19 @@ T omega_int(typename spherical<T>::polynomial_type const & pol, spheical<T> cons
 }
 
 template<class T>
-T omega_int(typename spherical<T>::polynomial_type const & pol, T const * sph_r, std::vector<spheical<T> > const & vsph_x,
+T omega_int(typename spherical<T>::polynomial_type const & pol, std::vector<T> const & sph_r, std::vector<spherical<T> > const & vsph_x,
 		spherical<T> const & sph_pp, angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
 {
 	T value = T(0);
-	spherical<T> const * p = &vsph_x[0];
+	if( sph_r.size() != vsph_x.size() )
+	{
+		std::cerr << "Error: omega_int(polynom pol, vector sph_r, vector<spherical> vsph, spherical sph_pp, omega_xyz, sph_buf)" << std::endl;
+		std::cerr << "sph_r.size : " << sph_r.size() << std::endl;
+		std::cerr << " vsph.size : " << vsph_x.size() << std::endl;
+		exit(1);
+	}
 	for(int i = 0; i < vsph_x.size(); ++i)
-		value += sph_r[i] * omega_int<T>( pol, *p++, sph_pp, omega_xyz_, sph_buf);
+		value += sph_r[i] * omega_int<T>( pol, vsph_x[i], sph_pp, omega_xyz_, sph_buf);
 	return value;
 }
 
@@ -220,7 +226,7 @@ int check_xyz(int const * x)
 
 template<class T>
 T omega_int(    typename spherical<T>::polynomial_type const & pol_a, typename spherical<T>::polynomial_type const & pol_b,
-		T const * sph_ra, T const * sph_rb,
+		std::vector<T> const & sph_ra, std::vector<T> const & sph_rb,
 		std::vector<spherical<T> > const & vsph_a, std::vector<spherical<T> > const & vsph_b,
 		std::vector<spherical<T> > const & vsph_pp,
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -266,7 +272,7 @@ void run_nc(vector_type & v, std::size_t n)
 	for(i = 0; i < v.size()/2; ++i)
 	{
 		v[i] = NewtonC<T>(n, i);
-		v[ax-i] = v[i];
+		v[n-i] = v[i];
 	}
 	if(v.size()%2) v[i] = NewtonC<T>(n, i);
 }
@@ -303,7 +309,7 @@ protected:
 	void run_v(std::vector<T> & v, T const & R, std::size_t n)
 	{
 		v.resize(n + 1);
-		scp_array<T> nc_v, ca_v;
+		std::vector<T> nc_v, ca_v;
 		run_nc<T, std::vector<T> >(nc_v, n);
 		run_cx<T, std::vector<T> >(ca_v, R, n);
 		for(int i = 0; i < v.size(); ++i)
@@ -314,8 +320,8 @@ protected:
 struct _abc_
 {
 	int a, b, c;
-	_abc_():a(0), b(0), c(0);
-	_abc(int __a, int __b, int __c):a(__a), b(__b), c(__c){}
+	_abc_():a(0), b(0), c(0){}
+	_abc_(int __a, int __b, int __c):a(__a), b(__b), c(__c){}
 	void set(int __a, int __b, int __c)
 	{
 		a = __a; b = __b; c = __c;
@@ -329,7 +335,8 @@ struct _abc_
 	int const & z()const{return c;}
 };
 
-int run_n_xyz(std::vector<_abc_> & v, int n, int ax, int ay, int az)
+template<class T>
+int run_n_xyz(std::vector<T> & v, int n, int ax, int ay, int az)
 {
 	v.reserve(n * n + 1);
 	v.clear();
@@ -338,7 +345,7 @@ int run_n_xyz(std::vector<_abc_> & v, int n, int ax, int ay, int az)
 	{
 		nmi = n - i;
 		for(int j = 0; j <= ay && j <= nmi; ++j)
-			v.push_back( _abc_(i, j, nmi-j) );
+			v.push_back( T(i, j, nmi-j) );
 	}
 }
 
@@ -346,7 +353,7 @@ struct v2_xyz
 {
 	int l, x, y, z;
 	std::vector<std::vector<_abc_> > _v2_xyz;
-	v_abc():l(0), x(0), y(0), z(0){}
+	v2_xyz():l(0), x(0), y(0), z(0){}
 	void run(int __l, int __x, int __y, int __z)
 	{
 		if( __l < 0 || (__x + __y + __z) != __l || __x < 0 || __y < 0 || __z < 0 )
@@ -377,37 +384,16 @@ struct v2_xyz
 template<class T>
 struct omega_integral
 {
-	T * _begin, * _end;
+	std::vector<T> v;
 	int la_sz, lb_sz, lmb_asz, lmb_bsz;
-	char pool[std::size_t(_1024x1024_)];
-	omega_integral():_begin((T *)pool), _end((T * )pool + std::size_t(_1024x1024_)/sizeof(T)), la_sz(0), lb_sz(0), lmb_asz(0), lmb_bsz(0)
+	omega_integral():v(std::size_t(_1024x1024_)/sizeof(T)), la_sz(0), lb_sz(0), lmb_asz(0), lmb_bsz(0)
 	{
-		T * p = _begin;
-		for(int i = 0; i < this->max_size(); ++i)
-			new (p++) T();
-	}
-	omega_integral(omega_integral<T> const & v):_begin((T *)pool), _end((T * )pool + std::size_t(_1024x1024_)/sizeof(T)),
-	la_sz(v.la_sz), lb_sz(v.lb_sz), lmb_asz(v.lmb_asz), lmb_bsz(v.lmb_bsz)
-	{
-		T * p = _begin;
-		T const * pv = &v[0];
-		for(int i = 0; i < this->max_size(); ++i)
-			new (p++) T(*pv++);
-	}
-	omega_integral<T> & operator=(omega_integral<T> const & v)
-	{
-		if( this == &v ) return *this;
-		la_sz = v.la_size();
-		lb_sz = v.lb_size();
-		lmb_asz = v.lmb_asize();
-		lmb_bsz = v.lmb_bsize();
-		for(int i = 0; i < this->size(); ++i)
-			_begin[i] = v[i];
+		for(int i = 0; i < v.size(); ++i) v[i] = T(0);
 	}
 	//
-	T & operator[](std::size_t i){return _begin[i];}
-	T const & operator[](std::size_t i)const{return _begin[i];}
-	std::size_t max_size()const{return _end - _begin;}
+	T & operator[](std::size_t i){return v[i];}
+	T const & operator[](std::size_t i)const{return v[i];}
+	std::size_t max_size()const{return v.size();}
 	std::size_t size()const{return la_sz * lb_sz * lmb_asz * lmb_bsz;}
 	//
 	std::size_t la_size()const{return la_sz;}
@@ -415,7 +401,9 @@ struct omega_integral
 	std::size_t lmb_asize()const{return lmb_asz;}
 	std::size_t lmb_bsize()const{return lmb_bsz;}
 	//
-	void run(int, _abc_ const &, _abc_ const & , T const *, T const *);
+	void run(int, _abc_ const &, _abc_ const & , T const *, T const *, angular_omega_xyz<T> const &);
+	T & operator()(int na, int nb, int lmb_a, int lmb_b){return v[((na * lb_sz + nb) * lmb_asz + lmb_a) * lmb_bsz + lmb_b];}
+	T const & operator()(int na, int nb, int lmb_a, int lmb_b)const{return v[((na * lb_sz + nb) * lmb_asz + lmb_a) * lmb_bsz + lmb_b];}
 };
 
 template<class T>
@@ -437,10 +425,10 @@ struct omega_integral_index
 {
 	std::vector<_abc_> const * p_xyz_a, * p_xyz_b;
 	newtc_x_ca<T> const * p_nc_x_ca, * p_nc_x_cb;
-	T const * sph_ra, * sph_rb;
+	std::vector<T> const * sph_ra, * sph_rb;
 	std::vector<spherical<T> > const * p_vsph_l, * p_vsph_lmb_a, * p_vsph_lmb_b;
 	//
-	omega_integral_index(): p_xyz_a(0), p_xyz_b(0), p_nc_x_ca(0), p_nc_x_cb(0), norm_ra(0), norm_rb(0),
+	omega_integral_index(): p_xyz_a(0), p_xyz_b(0), p_nc_x_ca(0), p_nc_x_cb(0), sph_ra(0), sph_rb(0),
 				p_vsph_l(0), p_vsph_lmb_a(0), p_vsph_lmb_b(0){}
 	// set
 	void set_xyz_a(std::vector<_abc_> const & vxyz_a){p_xyz_a = &vxyz_a;}
@@ -450,8 +438,8 @@ struct omega_integral_index
 		p_nc_x_ca = &nc_x_ca;
 		p_nc_x_cb = &nc_x_cb;
 	}
-	void set_sph_ra(T const * s_ra){sph_ra = s_ra;}
-	void set_sph_rb(T const * s_rb){sph_rb = s_rb;}
+	void set_sph_ra(std::vector<T> const & s_ra){sph_ra = &s_ra;}
+	void set_sph_rb(std::vector<T> const & s_rb){sph_rb = &s_rb;}
 	void set_sph_l(std::vector<spherical<T> > const & vsph_l){p_vsph_l = &vsph_l;}
 	void set_sph_lmb_a(std::vector<spherical<T> > const & vsph_lmb_a){p_vsph_lmb_a = &vsph_lmb_a;}
 	void set_sph_lmb_b(std::vector<spherical<T> > const & vsph_lmb_b){p_vsph_lmb_b = &vsph_lmb_b;}
@@ -462,13 +450,13 @@ T run_omega(omega_integral_index<T> const & indx, angular_omega_xyz<T> const & o
 {
 	std::vector<_abc_> const & vxyz_a = *indx.p_xyz_a, & vxyz_b = *indx.p_xyz_b;
 	newtc_x_ca<T> const & nc_x_ca = *indx.p_nc_x_ca, & nc_x_cb = *indx.p_nc_x_cb;
-	T const * norm_ra = indx.norm_ra, * norm_rb = indx.norm_rb;
+	std::vector<T> const & sph_ra = *indx.sph_ra, & sph_rb = *indx.sph_rb;
 	std::vector<spherical<T> > const & vsph_l = *indx.p_vsph_l, & vsph_lmb_a = *indx.p_vsph_lmb_a, & vsph_lmb_b = *indx.p_vsph_lmb_b;
 	//
 	typename spherical<T>::polynomial_type pol_a(T(1), 0, 0, 0), pol_b(T(1), 0, 0, 0);
 	_abc_ const * xyz_a, * xyz_b;
 	T newt_x_ca = 0, newt_x_cb = 0, value = 0;
-	int l = indx.p_vsph_l->n();
+	int l = indx.p_vsph_l->operator[](0).n();
 	for(int i = 0; i < vxyz_a.size(); ++i)
 	{
 		xyz_a = &vxyz_a[i];
@@ -480,9 +468,10 @@ T run_omega(omega_integral_index<T> const & indx, angular_omega_xyz<T> const & o
 			pol_b.set_x( &xyz_b->x() );
 			newt_x_cb = nc_x_cb(&xyz_b->x());
 			value += newt_x_ca * newt_x_cb * 
-				omega_int<T>( pol_a, pol_b, indx.sph_ra, indx.sph_rb, vsph_lmb_a, vsph_lmb_b, vsph_l, omega_xyz_, sph_buf );
+				omega_int<T>( pol_a, pol_b, sph_ra, sph_rb, vsph_lmb_a, vsph_lmb_b, vsph_l, omega_xyz_, sph_buf );
 		}
 	}
+	return value;
 }
 
 template<class T>
@@ -490,15 +479,24 @@ void spherical_rx(std::vector<std::vector<T> > & v2sph_rx, std::vector<std::vect
 {
 	for(int i = 0; i < v2sph_rx.size(); ++i)
 	{
-		v2sph_rx.resize(2 * i + 1);
+		v2sph_rx[i].resize(2 * i + 1);
 		for(int j = 0; j < v2sph_rx[i].size(); ++j)
 			v2sph_rx[i][j] = v2_sph[i][j].calc_r(norm_rx);
 	}
 }
 
-template<class T>
-void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const * ra, T const * rb)
+int max(int const & a, int const & b)
 {
+	return a > b ? a : b;
+}
+
+template<class T>
+void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const * ra, T const * rb, angular_omega_xyz<T> const & omega_xyz_)
+{
+	la_sz = la.sum() + 1;
+	lb_sz = lb.sum() + 1;
+	lmb_asz = l + la_sz;
+	lmb_bsz = l + lb_sz;
 	// 3d vector
 	T norm_ra[3], norm_rb[3];
 	norm_v3<T>( norm_ra, ra );
@@ -509,35 +507,32 @@ void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const *
 	v2_xyz_b.run( lb.sum(), lb.x(), lb.y(), lb.z() );
 	// newtonc_x_ca
 	newtc_x_ca<T> nc_x_ca, nc_x_cb;
-	nc_x_ca.run(ra, &la.x());
-	nc_x_cb.run(rb, &lb.x());
+	nc_x_ca.run(ra, la.x(), la.y(), la.z());
+	nc_x_cb.run(rb, lb.x(), lb.y(), lb.z());
 	// spherical
 	std::vector<std::vector<spherical<T> > > v2_sph;
-	std::vector<spherical<T> > * vsph_l;
-	sherical<T> sph_buf;
+	std::vector<spherical<T> > * p_vsph = 0;
+	spherical<T> sph_buf;
 	sph_buf.reserve( 100 );
-	v2_sph.resize( l + max(la.sum(), lb.sum()) );
+	std::cout << "lmb_max : " << l + max(la.sum(), lb.sum()) << std::endl;
+	v2_sph.resize( l + max(la.sum(), lb.sum()) + 1);
 	for(int i = 0; i < v2_sph.size(); ++i)
 	{
-		vsph_l = v2_sph[i];
-		vsph_l->resize(2 * i + 1);
-		for(int j = 0; j < vsph_l->size(); ++j)
-			(*vsph_l)[j].run(i, j-i);
+		p_vsph = &v2_sph[i];
+		p_vsph->resize(2 * i + 1);
+		for(int j = 0; j < p_vsph->size(); ++j)
+			(*p_vsph)[j].run(i, j-i);
 	}
 	// spherical r
 	std::vector<std::vector<T> > v2sph_ra(l + la.sum() + 1), v2sph_rb(l + lb.sum() + 1);
 	spherical_rx<T>( v2sph_ra, v2_sph, norm_ra );
 	spherical_rx<T>( v2sph_rb, v2_sph, norm_rb );
-	// angular_omega_xyz
-	angular_omega_xyz<T> omega_xyz_;
-	omega_xyz_.run(50, 50, 50);
 	// omega_integral_index
 	omega_integral_index<T> indx;
 	indx.set_newt( nc_x_ca, nc_x_cb );
 	indx.set_sph_l( v2_sph[l] );
 	// run
-	T * p = _begin;
-	vsph_l = &v2_sph[l];
+	T * p = &v[0];
 	for(int na = 0; na < la_sz; ++na)
 	{
 		indx.set_xyz_a( v2_xyz_a[na] );
@@ -546,11 +541,11 @@ void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const *
 			indx.set_xyz_b( v2_xyz_b[nb] );
 			for(int lmb_a = 0; lmb_a < lmb_asz; ++lmb_a)
 			{
-				indx.set_sph_ra( &v2sph_ra[lmb_a][0] )
+				indx.set_sph_ra( v2sph_ra[lmb_a] );
 				indx.set_sph_lmb_a( v2_sph[lmb_a] );
 				for(int lmb_b = 0; lmb_b < lmb_bsz; ++lmb_b)
 				{
-					indx.set_sph_rb( &v2sph_rb[lmb_b][0] )
+					indx.set_sph_rb( v2sph_rb[lmb_b] );
 					indx.set_sph_lmb_b( v2_sph[lmb_b] );
 					*p++ = run_omega<T>(indx, omega_xyz_, sph_buf);
 				}
@@ -560,7 +555,20 @@ void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const *
 }
 
 
-
+template<class T>
+void print_omega_integral(std::ostream & out, omega_integral<T> const & o_i)
+{
+	int prec = 16, w = prec + 8;
+	out.setf( std::ios::scientific );
+	out.precision( prec );
+	T const * p = &o_i[0];
+	for(int na = 0; na < o_i.la_size(); ++na)
+		for(int nb = 0; nb < o_i.lb_size(); ++nb)
+			for(int lmb_a = 0; lmb_a < o_i.lmb_asize(); ++lmb_a)
+				for(int lmb_b = 0; lmb_b < o_i.lmb_bsize(); ++lmb_b)
+					out << std::setw(4) << na << std::setw(4) << nb << std::setw(4) << lmb_a << std::setw(4) << lmb_b <<
+						std::setw( w ) << *p++ << std::endl;
+}
 
 
 
