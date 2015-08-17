@@ -385,8 +385,8 @@ template<class T>
 struct omega_integral
 {
 	std::vector<T> v;
-	int la_sz, lb_sz, lmb_asz, lmb_bsz;
-	omega_integral():v(std::size_t(_1024x1024_)/sizeof(T)), la_sz(0), lb_sz(0), lmb_asz(0), lmb_bsz(0)
+	int la_sz, lb_sz, lmb_asz, lmb_bsz, l_pp;
+	omega_integral():v(std::size_t(_1024x1024_)/sizeof(T)), la_sz(0), lb_sz(0), lmb_asz(0), lmb_bsz(0), l_pp(0)
 	{
 		for(int i = 0; i < v.size(); ++i) v[i] = T(0);
 	}
@@ -497,6 +497,7 @@ void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const *
 	lb_sz = lb.sum() + 1;
 	lmb_asz = l + la_sz;
 	lmb_bsz = l + lb_sz;
+	l_pp = l;
 	// 3d vector
 	T norm_ra[3], norm_rb[3];
 	norm_v3<T>( norm_ra, ra );
@@ -555,10 +556,25 @@ void omega_integral<T>::run(int l, _abc_ const & la, _abc_ const & lb, T const *
 }
 
 
+bool is_zero_cond(int na, int nb, int lmb_a, int lmb_b, int l)
+{
+	int l_max = lmb_a > l ? lmb_a : l, l_min = lmb_a + l - l_max;
+	if( !na && lmb_a != l ) return 1;
+	if( na + l_min < l_max ) return 1;
+	//
+	l_max = lmb_b > l ? lmb_b : l;
+	l_min = lmb_b + l - l_max;
+	if( !nb && lmb_b != l ) return 1;
+	if( nb + l_min < l_max ) return 1;
+	//
+	if( (na + nb + lmb_a + lmb_b)%2==0 && abs(lmb_a - lmb_b) > (na + nb) ) return 1;
+	return 0;
+}
+
 template<class T>
 void print_omega_integral(std::ostream & out, omega_integral<T> const & o_i)
 {
-	int prec = 16, w = prec + 8;
+	int prec = 16, w = prec + 8, l = o_i.l_pp;
 	out.setf( std::ios::scientific );
 	out.precision( prec );
 	T const * p = &o_i[0];
@@ -566,8 +582,13 @@ void print_omega_integral(std::ostream & out, omega_integral<T> const & o_i)
 		for(int nb = 0; nb < o_i.lb_size(); ++nb)
 			for(int lmb_a = 0; lmb_a < o_i.lmb_asize(); ++lmb_a)
 				for(int lmb_b = 0; lmb_b < o_i.lmb_bsize(); ++lmb_b)
-					out << std::setw(4) << na << std::setw(4) << nb << std::setw(4) << lmb_a << std::setw(4) << lmb_b <<
-						std::setw( w ) << *p++ << std::endl;
+				{
+					out << std::setw(4) << na << std::setw(4) << nb << std::setw(4) << lmb_a << std::setw(4) << lmb_b;
+					if( is_zero_cond(na, nb, lmb_a, lmb_b, l) )
+						if( *p == T(0)) out << std::setw( w ) << *p++ << std::setw(4) << "+" << std::endl;
+						else out << std::setw( w ) << *p++ << std::setw(4) << "-" << std::endl;
+					else  out << std::setw( w ) << *p++ << std::endl;
+				}
 }
 
 
