@@ -5,6 +5,14 @@
 #include"../spherical_harmonics/spherical.h"
 #include<vector>
 
+// some complicated file ...
+// here are methods that calculate omega integrals like these:
+//
+// 1st, simple ones:
+
+// 1.1 sum_n angular_omega_xyz(i_n, j_n, k_n) * c_n
+// where i_n, j_n, k_n, c_n  -- coefficients of spherical harmonic in decart coordinates representation
+// P.S. angular_omega_xyz -- see file 'angular.omega.xyz.h'
 template<class T>
 T omega_sph(spherical<T> const & sph, angular_omega_xyz<T> const & omega_xyz_)
 {
@@ -18,6 +26,10 @@ T omega_sph(spherical<T> const & sph, angular_omega_xyz<T> const & omega_xyz_)
 	return value;
 }
 
+// 1.2 sum_n angular_omega_xyz(i_n + i_x, j_n + i_y, k_n + i_z) * c_n
+// where i_n, j_n, k_n, c_n  -- coefficients of spherical harmonic in decart coordinates representation
+// i_x, i_y, i_z -- power values of x, y, z
+// P.S. angular_omega_xyz -- see file 'angular.omega.xyz.h'
 template<class T>
 T omega_xyz_sph(int x, int y, int z, spherical<T> const & sph, angular_omega_xyz<T> const & omega_xyz_)
 {
@@ -33,6 +45,11 @@ T omega_xyz_sph(int x, int y, int z, spherical<T> const & sph, angular_omega_xyz
 	return value;
 }
 
+// 1.2 sum_{n, p} angular_omega_xyz(i_n + i_p + i_x, j_n + j_p + i_y, k_n + k_p + i_z) * c_n * c_p
+// i_n, j_n, k_n, c_n  -- coefficients of 1st spherical harmonic in decart coordinates representation
+// i_p, j_p, k_p, c_p  -- coefficients of 2nd spherical harmonic in decart coordinates representation
+// i_x, i_y, i_z -- power values of x, y, z
+// P.S. angular_omega_xyz -- see file 'angular.omega.xyz.h'
 template<class T>
 T omega_xyz_sph2(int x, int y, int z, spherical<T> const & sph1, spherical<T> const & sph2, angular_omega_xyz<T> const & omega_xyz_,
 		spherical<T> & sph_buf)
@@ -56,6 +73,12 @@ bool check_lm(int const & l, int const & m)
 	return 0;
 }
 
+// 1.3 sum_{n, p} angular_omega_xyz(i_n + i_p + i_x, j_n + j_p + i_y, k_n + k_p + i_z) * c_n * c_p
+// i_n, j_n, k_n, c_n  -- coefficients of 1st spherical harmonic with l_a, m_a in decart coordinates representation
+// i_p, j_p, k_p, c_p  -- coefficients of 2nd spherical harmonic with l_b, m_b in decart coordinates representation
+// i_x, i_y, i_z -- power values of x, y, z
+// this is equivalent to above method (2015.09.04)
+// P.S. angular_omega_xyz -- see file 'angular.omega.xyz.h'
 template<class T>
 T omega_xyz_sph2(int x, int y, int z, int l_a, int m_a, int l_b, int m_b, std::vector<std::vector<spherical<T> > > const & v2sph,
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -80,6 +103,13 @@ T omega_xyz_sph2(int x, int y, int z, int l_a, int m_a, int l_b, int m_b, std::v
 
 //-----------------------------------------------------------------------------------------------------------//
 
+// 1.4 sum_m sum_{n, p_m} angular_omega_xyz(i_n + i_pm + i_x, j_n + j_pm + i_y, k_n + k_pm + i_z) * c_n * c_pm * sph(l_b, m, r)
+// i_n, j_n, k_n, c_n  -- coefficients of 1st spherical harmonic with l_a, m_a in decart coordinates representation
+// i_pm, j_pm, k_pm, c_pm  -- coefficients of 2nd spherical harmonic with l_b, and m in decart coordinates representation
+// T const * r -- normalized direction vector
+// sph(l_b, m, r) -- value of spherical harmonic with l_b, m and r-direction
+// i_x, i_y, i_z -- power values of x, y, z
+// P.S. angular_omega_xyz -- see file 'angular.omega.xyz.h'
 template<class T>
 T omega_xyz_sph_l(int x, int y, int z, int l_a, int m_a, int l_b, T const * r, std::vector<std::vector<spherical<T> > > const & v2sph,
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -129,6 +159,10 @@ struct omega_index
 	int max_l()const{return (l > lmb1 ? (l > lmb2 ? l : lmb2) : (lmb1 > lmb2 ? lmb1 : lmb2));}
 };
 
+// 2nd, complicated ones:
+//
+// 2.1 super mega large angular integral
+// P.S. functions used here are desribed above (see 1.4)
 template<class T>
 T omega_sph3(omega_index const & idx, T const * r_1, T const * r_2, std::vector<std::vector<spherical<T> > > const & v2sph,
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -178,6 +212,10 @@ T omega_sph3(omega_index const & idx, T const * r_1, T const * r_2, std::vector<
 //---------------------------------  OMEGA_INT  -----------------------------------------//
 //----------------------------------           ------------------------------------------//
 //---------------------------------------------------------------------------------------//
+// another self-sufficient set of methods:
+// P.S. all of them are named 'omega_int'
+//
+// 3.1 equivalent to 1.2-1.3 methods
 template<class T>
 T omega_int(typename spherical<T>::polynomial_type const & pol, spherical<T> const & sph_x, spherical<T> const & sph_pp, 
 		angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -196,10 +234,14 @@ T omega_int(typename spherical<T>::polynomial_type const & pol, spherical<T> con
 	{
 		if( !p->is_even_x() ) continue;
 		value += p->d * omega_xyz_(p->x, p->y, p->z);
+		++p;
 	}
 	return value;
 }
 
+// 3.2 equivalent to 1.4 method
+// std::vector<T> sph_r contains values of spherical harmonic in r-direction
+// vsph_x -- set of spherical harmonics with fixed l and volatile m
 template<class T>
 T omega_int(typename spherical<T>::polynomial_type const & pol, std::vector<T> const & sph_r, std::vector<spherical<T> > const & vsph_x,
 		spherical<T> const & sph_pp, angular_omega_xyz<T> const & omega_xyz_, spherical<T> & sph_buf)
@@ -224,6 +266,7 @@ int check_xyz(int const * x)
 	return 0;
 }
 
+// 3.3 equivalent to 2.1 method
 template<class T>
 T omega_int(    typename spherical<T>::polynomial_type const & pol_a, typename spherical<T>::polynomial_type const & pol_b,
 		std::vector<T> const & sph_ra, std::vector<T> const & sph_rb,
@@ -259,11 +302,11 @@ T omega_int(    typename spherical<T>::polynomial_type const & pol_a, typename s
 	return value;
 }
 
-//-------------------------------------------//
+// here starts new (third one =) ) implementation of angular integrals
+// below are some auxiliary methods, structs
 //-----------                  --------------//
 //---------- Newton coefficient -------------//
 //-----------                  --------------//
-//-------------------------------------------//
 template<class T, class vector_type>
 void run_nc(vector_type & v, std::size_t n)
 {
@@ -277,6 +320,9 @@ void run_nc(vector_type & v, std::size_t n)
 	if(v.size()%2) v[i] = NewtonC<T>(n, i);
 }
 
+//-----------                 ---------------//
+//---------- powers of value v --------------//
+//-----------                 ---------------//
 template<class T, class vector_type>
 void run_cx(vector_type & v, T const & R, std::size_t n)
 {
@@ -286,6 +332,9 @@ void run_cx(vector_type & v, T const & R, std::size_t n)
 		v[i] = v[i-1] * R;
 }
 
+//----------                    -------------//
+//--------- product Cnk*pow(v,n) ------------//
+//----------                    -------------//
 template<class T>
 struct newtc_x_ca
 {
@@ -317,6 +366,9 @@ protected:
 	}
 };
 
+//----------                   --------------//
+//--------- triple of x,y,z pow -------------//
+//----------                   --------------//
 struct _abc_
 {
 	int a, b, c;
@@ -335,6 +387,9 @@ struct _abc_
 	int const & z()const{return c;}
 };
 
+//------------               ----------------//
+//----------- set of trio abc ---------------//
+//------------               ----------------//
 template<class T>
 int run_n_xyz(std::vector<T> & v, int n, int ax, int ay, int az)
 {
@@ -349,6 +404,7 @@ int run_n_xyz(std::vector<T> & v, int n, int ax, int ay, int az)
 	}
 }
 
+// here final useable structure of abc set
 struct v2_xyz
 {
 	int l, x, y, z;
@@ -380,6 +436,29 @@ struct v2_xyz
 //------------------ OMEGA INTEGRAL -----------------------//
 //-------------------              ------------------------//
 //---------------------------------------------------------//
+// super duper mega omega integral new implementation starts...
+//
+// usage of this structure:
+//
+// 1) calculation of integral:
+// in order to calculate angular integrals with help of omega_integral structure one should launch omega_integral<T>::run( l, la, lb, ra[3], rb[3] )
+// there are following parameters:
+//    int l  -- angular momentum of pseudo-potential spherical harmonics
+//    abc la -- angular momentum and (x, y, z)-powers of A basis function
+//    abc lb -- angular momentum and (x, y, z)-powers of B basis function
+//    float_type ra[3] -- direction (vector) from A basis function center to pseudo-potential center
+//    float_type rb[3] -- direction (vector) from B basis function center to pseudo-potential center
+//    angular_omega_xyz<T> omega_xyz -- calculated values of corresponding integral
+//    
+// 2) what cocrete integral this structure stores
+// brief description:
+//    Omega(na, nb, lmb_a, lmb_b) := sum_{a+b+c=na} pow(ra, a b c) * sum_{d+e+f=nb} pow(rb, d e f) * sum_{m=-l}^{l} Omega_(l,lmb_a,lmb_b,a,b,c,d,e,f)
+//    where Omega_{l, lmb_a, lmb_b, a, b, c, d, e, f) := sum_{m=-l}^{l} Omega_{lmb_a, lm}^{a b c} * Omega_{lmb_b, lm}^{d e f} and then
+//    Omega_{lmb_a, lm}^{a b c} := 
+//        sum_{mu=-lmb_a}^{lmb_a} S_{lmb_a mu}( ra ) * int(x^a * y^b * z^c * S_{lm} * S_{lmb_a, mu}, theta=0..Pi, phi=0..2*Pi) ( see 1.4 method )
+//    S_{lm} -- spherical harmonic with angular momentum l ang projection m
+// for more details see omega_integral<T>::run method implementation
+//
 
 template<class T>
 struct omega_integral
@@ -407,17 +486,18 @@ struct omega_integral
 };
 
 template<class T>
-void norm_v3(T * norm_v, T const * v)
+T norm_v3(T * norm_v, T const * v)
 {
-	T sqr_v = 0;
-	for(int i = 0; i < 3; ++i) sqr_v += v[i] * v[i];
-	if( sqr_v == T(0) )
+	T sqrt_v = 0;
+	for(int i = 0; i < 3; ++i) sqrt_v += v[i] * v[i];
+	if( sqrt_v == T(0) )
 		for(int i = 0; i < 3; ++i) norm_v[i] = v[i];
 	else
 	{
-		sqr_v = sqrt( sqr_v );
-		for(int i = 0; i < 3; ++i) norm_v[i] = v[i]/sqr_v;
+		sqrt_v = sqrt( sqrt_v );
+		for(int i = 0; i < 3; ++i) norm_v[i] = v[i]/sqrt_v;
 	}
+	return sqrt_v;
 }
 
 template<class T>
