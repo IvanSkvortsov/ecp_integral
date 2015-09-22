@@ -2,7 +2,6 @@
 #define __ANGULAR_OMEGA_XYZ_H__
 #include<cstddef>// size_t
 #include<cstdlib>// exit
-//#include"../../../lib_math/math.functions.h"// factt
 #include"../../lib_math/math.functions.h"// factt
 #include<vector>
 
@@ -118,8 +117,7 @@ public:
 			exit(1);
 		}
 		T * p = &v[0];
-		// TODO: 1) realize usage of _data empty space in run() method (to avoid memory allocation for pointers)
-		// TODO: 2) realize less calculation and less mrmory usage for integral storage because of equivalence of (i,j,k), (j,i,k), etc.
+		// TODO: 1) realize less calculation and less memory usage for integral storage because of equivalence of (i,j,k), (j,i,k), etc.
 		std::size_t __ijk_max = _i_max + _j_max + _k_max, __i_p_j;
 		T * f_im1 = new T[_i_max/2+1], * f_jm1 = new T[_half_jmax__p1], * f_km1 = new T[_half_kmax__p1], * f_ijk_p1 = new T[__ijk_max/2+1];
 		//T * f_im1 = new T[_i_max/2+1], * f_jm1 = new T[_j_max/2+1], * f_km1 = new T[_k_max/2+1], * f_ijk_p1 = new T[__ijk_max/2+1];
